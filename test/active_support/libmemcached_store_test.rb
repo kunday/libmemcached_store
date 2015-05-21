@@ -384,6 +384,11 @@ describe ActiveSupport::Cache::LibmemcachedStore do
       @cache.read("unknown").must_equal 1
     end
 
+    it "can be read by a normal read_multi" do
+      fetch { 1 }
+      @cache.read_multi("unknown").must_equal "unknown" => 1
+    end
+
     it "can be read by a normal fetch" do
       fetch { 1 }
       @cache.fetch("unknown") { 2 }.must_equal 1

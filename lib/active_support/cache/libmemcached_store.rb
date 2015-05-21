@@ -216,7 +216,7 @@ module ActiveSupport
 
         values = {}
         raw_values.each do |key, value|
-          values[mapping[key]] = deserialize(value, options[:raw], flags[key])
+          values[mapping[key]] = convert_race_condition_entry(deserialize(value, options[:raw], flags[key]))
         end
         values
       rescue Memcached::Error => e
@@ -276,7 +276,7 @@ module ActiveSupport
 
       private
 
-      def convert_race_condition_entry(value, options)
+      def convert_race_condition_entry(value, options={})
         if !options[:preserve_race_condition_entry] && value.is_a?(FetchWithRaceConditionTTLEntry)
           value.value
         else
