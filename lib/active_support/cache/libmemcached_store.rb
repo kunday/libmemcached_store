@@ -212,7 +212,10 @@ module ActiveSupport
         return {} if names.empty?
 
         mapping = Hash[names.map {|name| [escape_and_normalize(expanded_key(name)), name] }]
-        raw_values, flags = @cache.get(mapping.keys, false, true)
+        keys = mapping.keys
+        raw_values, flags = instrument(:read_multi, keys, options) do
+          @cache.get(keys, false, true)
+        end
 
         values = {}
         raw_values.each do |key, value|
@@ -225,7 +228,9 @@ module ActiveSupport
       end
 
       def clear(options = nil)
-        @cache.flush
+        instrument(:clear, "*") do
+          @cache.flush
+        end
       end
 
       def stats

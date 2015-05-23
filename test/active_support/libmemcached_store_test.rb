@@ -14,6 +14,12 @@ ActiveSupport::Cache::LibmemcachedStore.class_eval do
   end
 end
 
+module Rails
+  def self.logger
+    Logger.new(StringIO.new)
+  end
+end
+
 describe ActiveSupport::Cache::LibmemcachedStore do
   class MockUser
     def cache_key
@@ -40,6 +46,21 @@ describe ActiveSupport::Cache::LibmemcachedStore do
       assert @cache.write(key, '2', :raw => true)
       assert_equal 3, @cache.increment(key)
       assert_equal 2, @cache.decrement(key)
+    end
+
+    def listen_to_instrumentation
+      old, ActiveSupport::Cache::Store.instrument = ActiveSupport::Cache::Store.instrument, true
+      called = []
+      key = //
+      ActiveSupport::Notifications.subscribe(key) do |*args|
+        args[1..3] = [] # ignore timestamps
+        called << args
+      end
+      yield
+      called
+    ensure
+      ActiveSupport::Notifications.unsubscribe(key)
+      ActiveSupport::Cache::Store.instrument = old
     end
 
     it "fetch_without_cache_miss" do
@@ -127,29 +148,38 @@ describe ActiveSupport::Cache::LibmemcachedStore do
       refute_equal @cache.read('foo').object_id, @cache.read('foo').object_id
     end
 
-    it "read_multi" do
-      @cache.write('foo', 'bar')
-      @cache.write('fu', 'baz')
-      @cache.write('fud', 'biz')
-      assert_equal({"foo" => "bar", "fu" => "baz"}, @cache.read_multi('foo', 'fu'))
-    end
+    describe "#read_multi" do
+      it "reads multiple" do
+        @cache.write('foo', 'bar')
+        @cache.write('fu', 'baz')
+        @cache.write('fud', 'biz')
+        assert_equal({"foo" => "bar", "fu" => "baz"}, @cache.read_multi('foo', 'fu'))
+      end
 
-    it "read_multi_with_array" do
-      @cache.write('foo', 'bar')
-      @cache.write('fu', 'baz')
-      assert_equal({"foo" => "bar", "fu" => "baz"}, @cache.read_multi(['foo', 'fu']))
-    end
+      it "reads with array" do
+        @cache.write('foo', 'bar')
+        @cache.write('fu', 'baz')
+        assert_equal({"foo" => "bar", "fu" => "baz"}, @cache.read_multi(['foo', 'fu']))
+      end
 
-    it "read_multi_with_raw" do
-      @cache.write('foo', 'bar', :raw => true)
-      @cache.write('fu', 'baz', :raw => true)
-      assert_equal({"foo" => "bar", "fu" => "baz"}, @cache.read_multi('foo', 'fu'))
-    end
+      it "reads with raw" do
+        @cache.write('foo', 'bar', :raw => true)
+        @cache.write('fu', 'baz', :raw => true)
+        assert_equal({"foo" => "bar", "fu" => "baz"}, @cache.read_multi('foo', 'fu'))
+      end
 
-    it "read_multi_with_compress" do
-      @cache.write('foo', 'bar', :compress => true, :compress_threshold => 1)
-      @cache.write('fu', 'baz', :compress => true, :compress_threshold => 1)
-      assert_equal({"foo" => "bar", "fu" => "baz"}, @cache.read_multi('foo', 'fu'))
+      it "reads with compress" do
+        @cache.write('foo', 'bar', :compress => true, :compress_threshold => 1)
+        @cache.write('fu', 'baz', :compress => true, :compress_threshold => 1)
+        assert_equal({"foo" => "bar", "fu" => "baz"}, @cache.read_multi('foo', 'fu'))
+      end
+
+      it "instruments" do
+        called = listen_to_instrumentation do
+          @cache.read_multi('foo', 'fu')
+        end
+        called.must_equal [["cache_read_multi.active_support", {:key=>["foo", "fu"]}]]
+      end
     end
 
     it "cache_key" do
@@ -186,23 +216,49 @@ describe ActiveSupport::Cache::LibmemcachedStore do
       assert_equal 'baz', @cache.fetch('foo bar') { 'baz' }
     end
 
-    it "exist" do
-      @cache.write('foo', 'bar')
-      assert @cache.exist?('foo')
-      refute @cache.exist?('bar')
+    describe "#exist?" do
+      it "is true when key exists" do
+        @cache.write('foo', 'bar')
+        assert @cache.exist?('foo')
+      end
+
+      it "is false when key does not exist" do
+        refute @cache.exist?('bar')
+      end
+
+      it "is true when key is set to false" do
+        @cache.write('foo', false)
+        assert @cache.exist?('foo')
+      end
+
+      it "instruments" do
+        called = listen_to_instrumentation do
+          @cache.exist?('foo')
+        end
+        called.must_equal [["cache_exist?.active_support", {:key=>"foo", :exception=>["Memcached::NotFound", "Memcached::NotFound"]}]]
+      end
     end
 
-    it "delete" do
-      @cache.write('foo', 'bar')
-      assert @cache.exist?('foo')
-      assert @cache.delete('foo')
-      refute @cache.exist?('foo')
-    end
+    describe "#delete" do
+      it "deletes and returns true" do
+        @cache.write('foo', 'bar')
+        assert @cache.exist?('foo')
+        assert @cache.delete('foo')
+        refute @cache.exist?('foo')
+      end
 
-    it "delete_with_unexistent_key" do
-      @cache.expects(:log_error).never
-      refute @cache.exist?('foo')
-      refute @cache.delete('foo')
+      it "returns false if key does not exist" do
+        @cache.expects(:log_error).never
+        refute @cache.exist?('foo')
+        refute @cache.delete('foo')
+      end
+
+      it "instruments" do
+        called = listen_to_instrumentation do
+          @cache.delete('foo')
+        end
+        called.must_equal [["cache_delete.active_support", {:key=>"foo"}]]
+      end
     end
 
     it "store_objects_should_be_immutable" do
@@ -239,16 +295,25 @@ describe ActiveSupport::Cache::LibmemcachedStore do
       really_long_keys_test
     end
 
-    it "clear" do
-      @cache.write("foo", "bar")
-      @cache.clear
-      assert_nil @cache.read("foo")
-    end
+    describe "#clear" do
+      it "clears" do
+        @cache.write("foo", "bar")
+        @cache.clear
+        assert_nil @cache.read("foo")
+      end
 
-    it "clear_with_options" do
-      @cache.write("foo", "bar")
-      @cache.clear(:some_option => true)
-      assert_nil @cache.read("foo")
+      it "ignores options" do
+        @cache.write("foo", "bar")
+        @cache.clear(:some_option => true)
+        assert_nil @cache.read("foo")
+      end
+
+      it "instruments" do
+        called = listen_to_instrumentation do
+          @cache.clear
+        end
+        called.must_equal [["cache_clear.active_support", {:key=>"*"}]]
+      end
     end
   end
 
