@@ -1,8 +1,12 @@
 # Changelog
 
+## 0.7.2
+  * Instrument read_multi (grosser)
+  * Convert race condition entries in read_multi (grosser)
+
 ## 0.7.1
-  # Drop suppport for Rails 3.2 and add tests for Rails 4.1
-  # Fix bug with race_condition_ttl and no expires_in (grosser)
+  * Drop suppport for Rails 3.2 and add tests for Rails 4.1
+  * Fix bug with race_condition_ttl and no expires_in (grosser)
 
 ## 0.7.0
   * Add support for memcached 1.7 (grosser)
