@@ -119,31 +119,6 @@ module ActiveSupport
         end
       end
 
-      def fetch_with_race_condition_ttl(key, options={}, &block)
-        options = options.dup
-
-        race_ttl = options.delete(:race_condition_ttl) || raise("Use :race_condition_ttl option or normal fetch")
-        expires_in = options.fetch(:expires_in)
-        options[:expires_in] = expires_in + race_ttl
-        options[:preserve_race_condition_entry] = true
-
-        value = fetch(key, options) { FetchWithRaceConditionTTLEntry.new(yield, expires_in) }
-
-        return value unless value.is_a?(FetchWithRaceConditionTTLEntry)
-
-        if value.expired? && !value.extended
-          # we take care of refreshing the cache, all others should keep reading
-          value.extended = true
-          write(key, value, options.merge(:expires_in => value.expires_in + race_ttl))
-
-          # calculate new value and store it
-          value = FetchWithRaceConditionTTLEntry.new(yield, expires_in)
-          write(key, value, options)
-        end
-
-        value.value
-      end
-
       def read(key, options = nil)
         key = expanded_key(key)
         instrument(:read, key, options) do |payload|
@@ -280,6 +255,31 @@ module ActiveSupport
       end
 
       private
+
+      def fetch_with_race_condition_ttl(key, options={}, &block)
+        options = options.dup
+
+        race_ttl = options.delete(:race_condition_ttl) || raise("Use :race_condition_ttl option or normal fetch")
+        expires_in = options.fetch(:expires_in)
+        options[:expires_in] = expires_in + race_ttl
+        options[:preserve_race_condition_entry] = true
+
+        value = fetch(key, options) { FetchWithRaceConditionTTLEntry.new(yield, expires_in) }
+
+        return value unless value.is_a?(FetchWithRaceConditionTTLEntry)
+
+        if value.expired? && !value.extended
+          # we take care of refreshing the cache, all others should keep reading
+          value.extended = true
+          write(key, value, options.merge(:expires_in => value.expires_in + race_ttl))
+
+          # calculate new value and store it
+          value = FetchWithRaceConditionTTLEntry.new(yield, expires_in)
+          write(key, value, options)
+        end
+
+        value.value
+      end
 
       def convert_race_condition_entry(value, options={})
         if !options[:preserve_race_condition_entry] && value.is_a?(FetchWithRaceConditionTTLEntry)
