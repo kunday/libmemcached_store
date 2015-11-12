@@ -60,6 +60,24 @@ describe ActiveSupport::Cache::LibmemcachedLocalStore do
     @cache.read('x').must_equal "1"
   end
 
+  describe 'reading nil with locale store' do
+    it "caches nil in local cache" do
+      @cache.with_local_cache do
+        @memcache.expects(get: nil)
+        @cache.read('xxx').must_equal nil
+        @memcache.expects(:get).never
+        @cache.read('xxx').must_equal nil
+      end
+    end
+
+    it "does not call local_cache multiple times" do
+      @cache.with_local_cache do
+        @cache.expects(local_cache: @cache.send(:local_cache))
+        @cache.read('xxx').must_equal nil
+      end
+    end
+  end
+
   describe "read_multi" do
     it_wawo "can read multi" do
       @cache.write 'x', 3

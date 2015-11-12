@@ -70,9 +70,7 @@ config.session_store :libmemcached_store, :namespace => '_session', :expire_afte
 You can use `:libmemcached_local_store` if you want a local in-memory cache for each request
 
 ```ruby
-require 'action_dispatch/session/libmemcached_store'
 config.cache_store :libmemcached_local_store
-config.middleware.use Rails.cache.middleware
 ```
 
 

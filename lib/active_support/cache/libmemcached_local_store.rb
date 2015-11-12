@@ -1,5 +1,25 @@
 require 'active_support/cache/libmemcached_store'
 
+# cache nils
+# https://github.com/rails/rails/pull/22194
+if ActiveSupport::VERSION::MAJOR < 5
+  ActiveSupport::Cache::Strategy::LocalCache::LocalStore.class_eval do
+    def fetch_entry(key, options=nil)
+      @data.fetch(key) { @data[key] = yield }
+    end
+  end
+
+  ActiveSupport::Cache::Strategy::LocalCache.class_eval do
+    def read_entry(key, options) # :nodoc:
+      if cache = local_cache
+        cache.fetch_entry(key) { super }
+      else
+        super
+      end
+    end
+  end
+end
+
 module ActiveSupport
   module Cache
     class LibmemcachedLocalStore < LibmemcachedStore
@@ -24,7 +44,7 @@ module ActiveSupport
         # We write raw values to the local cache, unlike rails MemcachedStore, so we cannot use local_cache.read_multi.
         # Once read_multi_entry is available we can switch to that.
         results = names.each_with_object({}) do |name, results|
-          value = local_cache_fetch_entry(name) do
+          value = local_cache.fetch_entry(name) do
             missing_names << name
             nil
           end
@@ -64,15 +84,12 @@ module ActiveSupport
       # when trying to do a raw read we want the marshaled value to behave the same as memcached
       def read_entry(key, options)
         entry = super
+
         if options && options[:raw] && local_cache && entry && !entry.is_a?(Entry)
           entry = Marshal.dump(entry)
         end
-        entry
-      end
 
-      def local_cache_fetch_entry(key)
-        data = local_cache.instance_variable_get(:@data)
-        data.fetch(key) { data[key] = yield }
+        entry
       end
 
       # for memcached writing raw means writing a string and not the actual value
