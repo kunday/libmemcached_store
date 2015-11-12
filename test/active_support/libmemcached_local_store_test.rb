@@ -21,8 +21,9 @@ describe ActiveSupport::Cache::LibmemcachedLocalStore do
 
   before do
     @cache = ActiveSupport::Cache.lookup_store(:libmemcached_local_store, expires_in: 60)
-    @cache.clear
     @cache.silence!
+    @cache.clear
+    @memcache = @cache.instance_variable_get(:@cache)
   end
 
   it_wawo "can read and write" do
@@ -57,5 +58,56 @@ describe ActiveSupport::Cache::LibmemcachedLocalStore do
     @cache.decrement 'x', 1
     @cache.decrement 'x', 1
     @cache.read('x').must_equal "1"
+  end
+
+  describe "read_multi" do
+    it_wawo "can read multi" do
+      @cache.write 'x', 3
+      @cache.read_multi('x', 'y').must_equal("x" => 3)
+    end
+
+    it "uses remote cache when local cache is missing keys" do
+      @cache.write('a', 1)
+
+      @cache.with_local_cache do
+        @cache.write('b', 2)
+        @memcache.expects(:get).with(['a'], false, true).returns([{ 'a' => 1 }, {}])
+        assert_equal({ 'a' => 1, 'b' => 2 }, @cache.read_multi('a', 'b'))
+      end
+    end
+
+    it "stores remote cache results in local cache" do
+      @cache.with_local_cache do
+        @memcache.expects(:get).with(['a', 'b'], false, true).returns([{ 'a' => 1 }, {}])
+        @cache.read_multi('a', 'b').must_equal 'a' => 1
+        @cache.read_multi('a', 'b').must_equal 'a' => 1 # does not call remote cache at all
+      end
+    end
+
+    it "does not return unfound keys" do
+      @cache.with_local_cache do
+        @memcache.expects(:get).with(['a'], false, true).returns([{}, {}])
+        @cache.read_multi('a').must_equal({})
+      end
+    end
+
+    it "reads too long keys" do
+      key = 'a' * 999
+      @cache.write key, 1
+      @cache.with_local_cache do
+        @memcache.expects(:get).with(anything, false, true).returns([{}, {}])
+        @cache.read_multi(key).must_equal({})
+      end
+    end
+
+    it "memory store should read multiple keys" do
+      store = ActiveSupport::Cache.lookup_store :memory_store
+      store.write('a', 1)
+      store.write('b', 2)
+
+      expected = { 'a' => 1, 'b' => 2 }
+      assert_equal expected, store.read_multi('a', 'b', 'c')
+      assert_equal({}, store.read_multi)
+    end
   end
 end

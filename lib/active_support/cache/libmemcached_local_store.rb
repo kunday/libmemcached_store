@@ -13,7 +13,33 @@ module ActiveSupport
         result
       end
 
-      private
+      # make read multi hit local cache
+      def read_multi(*names)
+        return super unless cache = local_cache
+
+        options = names.extract_options!
+
+        missing_names = []
+
+        # We write raw values to the local cache, unlike rails MemcachedStore, so we cannot use local_cache.read_multi.
+        # Once read_multi_entry is available we can switch to that.
+        results = names.each_with_object({}) do |name, results|
+          value = local_cache_fetch_entry(name) do
+            missing_names << name
+            nil
+          end
+          results[name] = value unless value.nil?
+        end
+
+        if missing_names.any?
+          missing_names << options
+          missing = super(*missing_names)
+          missing.each { |k,v| cache.write_entry(k, v, nil) }
+          results.merge!(missing)
+        end
+
+        results
+      end
 
       # memcached returns a fixnum on increment, but the value that is stored is raw / a string
       def increment(key, amount, options={})
@@ -42,6 +68,11 @@ module ActiveSupport
           entry = Marshal.dump(entry)
         end
         entry
+      end
+
+      def local_cache_fetch_entry(key)
+        data = local_cache.instance_variable_get(:@data)
+        data.fetch(key) { data[key] = yield }
       end
 
       # for memcached writing raw means writing a string and not the actual value
