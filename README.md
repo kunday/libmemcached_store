@@ -67,6 +67,13 @@ require 'action_dispatch/session/libmemcached_store'
 config.session_store :libmemcached_store, :namespace => '_session', :expire_after => 1800
 ```
 
+You can use `:libmemcached_local_store` if you want a local in-memory cache for each request
+
+```ruby
+config.cache_store :libmemcached_local_store
+```
+
+
 Increment / Decrement only work on raw values:
 
 ```ruby
