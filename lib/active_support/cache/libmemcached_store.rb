@@ -188,15 +188,13 @@ module ActiveSupport
 
         mapping = Hash[names.map {|name| [normalize_key(name), name] }]
         keys = mapping.keys
-        raw_values, flags = instrument(:read_multi, keys, options) do
-          @cache.get(keys, false, true)
+        instrument(:read_multi, keys, options) do
+          values = {}
+          read_multi_entry(keys, options).each do |key, value|
+            values[mapping[key]] = value
+          end
+          values
         end
-
-        values = {}
-        raw_values.each do |key, value|
-          values[mapping[key]] = convert_race_condition_entry(deserialize(value, options[:raw], flags[key]))
-        end
-        values
       rescue Memcached::Error => e
         log_error(e)
         {}
@@ -213,6 +211,15 @@ module ActiveSupport
       end
 
       protected
+
+      def read_multi_entry(keys, options)
+        raw_values, flags = @cache.get(keys, false, true)
+        values = {}
+        raw_values.each do |key, value|
+          values[key] = convert_race_condition_entry(deserialize(value, options[:raw], flags[key]))
+        end
+        values
+      end
 
       def read_entry(key, options = nil)
         options ||= {}

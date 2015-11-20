@@ -34,26 +34,23 @@ module ActiveSupport
       end
 
       # make read multi hit local cache
-      def read_multi(*names)
+      def read_multi_entry(keys, options)
         return super unless cache = local_cache
 
-        options = names.extract_options!
-
-        missing_names = []
+        missing_keys = []
 
         # We write raw values to the local cache, unlike rails MemcachedStore, so we cannot use local_cache.read_multi.
         # Once read_multi_entry is available we can switch to that.
-        results = names.each_with_object({}) do |name, results|
-          value = local_cache.fetch_entry(name) do
-            missing_names << name
+        results = keys.each_with_object({}) do |key, results|
+          value = local_cache.fetch_entry(key) do
+            missing_keys << key
             nil
           end
-          results[name] = value unless value.nil?
+          results[key] = value unless value.nil?
         end
 
-        if missing_names.any?
-          missing_names << options
-          missing = super(*missing_names)
+        if missing_keys.any?
+          missing = super(missing_keys, options)
           missing.each { |k,v| cache.write_entry(k, v, nil) }
           results.merge!(missing)
         end
@@ -94,9 +91,11 @@ module ActiveSupport
 
       # for memcached writing raw means writing a string and not the actual value
       def write_entry(key, entry, options) # :nodoc:
+        return super unless cache = local_cache
+
         written = super
-        if options && options[:raw] && local_cache && written
-          local_cache.write_entry(key, Entry.new(entry.to_s), options)
+        if options && options[:raw] && written
+          cache.write_entry(key, Entry.new(entry.to_s), options)
         end
         written
       end

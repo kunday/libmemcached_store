@@ -127,5 +127,14 @@ describe ActiveSupport::Cache::LibmemcachedLocalStore do
       assert_equal expected, store.read_multi('a', 'b', 'c')
       assert_equal({}, store.read_multi)
     end
+
+    it "can read interchangeable keys with read_multi" do
+      @cache.with_local_cache do
+        @cache.write 'x', 1 # write plain key
+        @cache.read_multi('x').must_equal('x' => 1)
+        @memcache.set 'x', 2
+        @cache.read_multi(['x']).must_equal('x' => 1) # reads normalized key
+      end
+    end
   end
 end
