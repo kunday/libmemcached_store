@@ -5,7 +5,7 @@ Gem::Specification.new do |s|
   s.version     = LibmemcachedStore::VERSION
   s.summary     = "ActiveSupport 3+ cache store for the C-based libmemcached client"
   s.email       = "cocchi.c@gmail.com"
-  s.homepage    = "http://github.com/ccocchi/libmemcached_store"
+  s.homepage    = "https://github.com/ccocchi/libmemcached_store"
   s.description = %q{An ActiveSupport cache store that uses the C-based libmemcached client through
       Evan Weaver's Ruby/SWIG wrapper, memcached. libmemcached is fast, lightweight,
       and supports consistent hashing, non-blocking IO, and graceful server failover.}
