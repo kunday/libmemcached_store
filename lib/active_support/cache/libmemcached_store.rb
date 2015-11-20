@@ -91,7 +91,7 @@ module ActiveSupport
           if options && options[:race_condition_ttl] && options[:expires_in]
             fetch_with_race_condition_ttl(key, options, &block)
           else
-            key = expanded_key(key)
+            key = normalize_key(key)
             unless options && options[:force]
               entry = instrument(:read, key, options) do |payload|
                 read_entry(key, options).tap do |result|
@@ -120,7 +120,7 @@ module ActiveSupport
       end
 
       def read(key, options = nil)
-        key = expanded_key(key)
+        key = normalize_key(key)
         instrument(:read, key, options) do |payload|
           entry = read_entry(key, options)
           payload[:hit] = !!entry if payload
@@ -129,24 +129,24 @@ module ActiveSupport
       end
 
       def write(key, value, options = nil)
-        key = expanded_key(key)
+        key = normalize_key(key)
         instrument(:write, key, options) do |payload|
           write_entry(key, value, options)
         end
       end
 
       def delete(key, options = nil)
-        key = expanded_key(key)
+        key = normalize_key(key)
         instrument(:delete, key) do |payload|
           delete_entry(key, options)
         end
       end
 
       def exist?(key, options = nil)
-        key = expanded_key(key)
+        key = normalize_key(key)
         instrument(:exist?, key) do |payload|
           if @cache.respond_to?(:exist)
-            @cache.exist(escape_and_normalize(key))
+            @cache.exist(key)
             true
           else
             read_entry(key, options) != nil
@@ -157,9 +157,9 @@ module ActiveSupport
       end
 
       def increment(key, amount = 1, options = nil)
-        key = expanded_key(key)
+        key = normalize_key(key)
         instrument(:increment, key, amount: amount) do
-          @cache.incr(escape_and_normalize(key), amount)
+          @cache.incr(key, amount)
         end
       rescue Memcached::NotFound
         nil
@@ -169,9 +169,9 @@ module ActiveSupport
       end
 
       def decrement(key, amount = 1, options = nil)
-        key = expanded_key(key)
+        key = normalize_key(key)
         instrument(:decrement, key, amount: amount) do
-          @cache.decr(escape_and_normalize(key), amount)
+          @cache.decr(key, amount)
         end
       rescue Memcached::NotFound
         nil
@@ -186,7 +186,7 @@ module ActiveSupport
 
         return {} if names.empty?
 
-        mapping = Hash[names.map {|name| [escape_and_normalize(expanded_key(name)), name] }]
+        mapping = Hash[names.map {|name| [normalize_key(name), name] }]
         keys = mapping.keys
         raw_values, flags = instrument(:read_multi, keys, options) do
           @cache.get(keys, false, true)
@@ -216,7 +216,7 @@ module ActiveSupport
 
       def read_entry(key, options = nil)
         options ||= {}
-        raw_value, flags = @cache.get(escape_and_normalize(key), false, true)
+        raw_value, flags = @cache.get(key, false, true)
         value = deserialize(raw_value, options[:raw], flags)
         convert_race_condition_entry(value, options)
       rescue Memcached::NotFound
@@ -237,7 +237,7 @@ module ActiveSupport
           flags |= FLAG_COMPRESSED
         end
 
-        @cache.send(method, escape_and_normalize(key), entry, options[:expires_in].to_i, false, flags)
+        @cache.send(method, key, entry, options[:expires_in].to_i, false, flags)
         true
       rescue Memcached::Error => e
         log_error(e)
@@ -245,7 +245,7 @@ module ActiveSupport
       end
 
       def delete_entry(key, options = nil)
-        @cache.delete(escape_and_normalize(key))
+        @cache.delete(key)
         true
       rescue Memcached::NotFound
         false
@@ -294,6 +294,10 @@ module ActiveSupport
         raw ? value : Marshal.load(value)
       rescue TypeError, ArgumentError
         value
+      end
+
+      def normalize_key(key)
+        escape_and_normalize(expanded_key(key))
       end
 
       def escape_and_normalize(key)
