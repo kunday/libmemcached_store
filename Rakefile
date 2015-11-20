@@ -1,6 +1,7 @@
 require 'bundler/setup'
 require 'rake/testtask'
 require 'rdoc/task'
+require 'bump/tasks'
 
 task :default => :test
 
