@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.8.0
+  * add :libmemcached_local_store a cache with built in and tested local store
+
 ## 0.7.2
   * Instrument read_multi (grosser)
   * Convert race condition entries in read_multi (grosser)
