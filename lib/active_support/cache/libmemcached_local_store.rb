@@ -62,7 +62,7 @@ module ActiveSupport
       end
 
       # memcached returns a fixnum on increment, but the value that is stored is raw / a string
-      def increment(key, amount, options={})
+      def increment(key, amount = 1, options={})
         result = super
         if result && (cache = local_cache)
           cache.write(key, result.to_s)
@@ -71,7 +71,7 @@ module ActiveSupport
       end
 
       # memcached returns a fixnum on decrement, but the value that is stored is raw / a string
-      def decrement(key, amount, options={})
+      def decrement(key, amount = 1, options={})
         result = super
         if result && (cache = local_cache)
           cache.write(key, result.to_s)

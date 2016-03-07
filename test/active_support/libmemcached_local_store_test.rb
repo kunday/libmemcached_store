@@ -53,11 +53,23 @@ describe ActiveSupport::Cache::LibmemcachedLocalStore do
     @cache.read('x').must_equal "2"
   end
 
+  it_wawo "can increment with default" do
+    @cache.write 'x', 0, raw: true
+    @cache.increment 'x'
+    @cache.read('x').must_equal "1"
+  end
+
   it_wawo "can decrement" do
     @cache.write 'x', 3, raw: true
     @cache.decrement 'x', 1
     @cache.decrement 'x', 1
     @cache.read('x').must_equal "1"
+  end
+
+  it_wawo "can decrement with default" do
+    @cache.write 'x', 3, raw: true
+    @cache.decrement 'x'
+    @cache.read('x').must_equal "2"
   end
 
   describe 'reading nil with locale store' do
