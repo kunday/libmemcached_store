@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.8.2
+  * fix not calculating prefix_delimiter length correctly when passed in
+
 ## 0.8.0
   * add :libmemcached_local_store a cache with built in and tested local store
 
