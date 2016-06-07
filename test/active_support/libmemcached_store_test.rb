@@ -295,6 +295,12 @@ describe ActiveSupport::Cache::LibmemcachedStore do
       really_long_keys_test
     end
 
+    it "really_long_keys_with_client_prefix" do
+      @cache = ActiveSupport::Cache.lookup_store(:libmemcached_store, :expires_in => 60, :client => { :prefix_key => 'namespace', :prefix_delimiter => ':'})
+      @cache.silence!
+      really_long_keys_test
+    end
+
     describe "#clear" do
       it "clears" do
         @cache.write("foo", "bar")

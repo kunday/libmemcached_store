@@ -75,10 +75,9 @@ module ActiveSupport
         if options[:namespace]
           client_options[:prefix_key] = options.delete(:namespace)
           client_options[:prefix_delimiter] = ':'
-          @namespace_length = client_options[:prefix_key].length + 1
-        else
-          @namespace_length = 0
         end
+        @namespace_length = "#{client_options[:prefix_key]}#{client_options[:prefix_delimiter]}".force_encoding("BINARY").size
+
         client_options[:default_ttl] = options.delete(:expires_in).to_i if options[:expires_in]
 
         @options = {compress_threshold: DEFAULT_COMPRESS_THRESHOLD}.merge(options)
