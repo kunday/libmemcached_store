@@ -366,32 +366,32 @@ describe ActiveSupport::Cache::LibmemcachedStore do
     end
   end
 
-  it "should_identify_cache_store" do
+  it "is a cache store" do
     assert_kind_of ActiveSupport::Cache::LibmemcachedStore, @cache
   end
 
-  it "should_set_server_addresses_to_nil_if_none_are_given" do
+  it "sets server addresses to nil if none are given" do
     assert_equal [], @cache.addresses
   end
 
-  it "should_set_custom_server_addresses" do
+  it "set custom server addresses" do
     store = ActiveSupport::Cache.lookup_store :libmemcached_store, 'localhost', '192.168.1.1'
     assert_equal %w(localhost 192.168.1.1), store.addresses
   end
 
-  it "should_enable_consistent_ketema_hashing_by_default" do
+  it "enables consistent ketema hashing by default" do
     assert_equal :consistent_ketama, @cache.client_options[:distribution]
   end
 
-  it "should_not_enable_non_blocking_io_by_default" do
+  it "does not enable non blocking io by default" do
     assert_equal false, @cache.client_options[:no_block]
   end
 
-  it "should_not_enable_server_failover_by_default" do
+  it "does not enable server failover by default" do
     assert_nil @cache.client_options[:failover]
   end
 
-  it "should_allow_configuration_of_custom_options" do
+  it "allows configuration of custom options" do
     options = { client: { tcp_nodelay: true, distribution: :modula } }
 
     store = ActiveSupport::Cache.lookup_store :libmemcached_store, 'localhost', options
@@ -400,7 +400,7 @@ describe ActiveSupport::Cache::LibmemcachedStore do
     assert_equal true, store.client_options[:tcp_nodelay]
   end
 
-  it "should_allow_mute_and_silence" do
+  it "allows mute and silence" do
     cache = ActiveSupport::Cache.lookup_store :libmemcached_store, 'localhost'
     cache.mute do
       assert cache.write('foo', 'bar')
