@@ -300,7 +300,7 @@ module ActiveSupport
       end
 
       def escape_and_normalize(key)
-        key = key.to_s.force_encoding("BINARY").gsub(ESCAPE_KEY_CHARS) { |match| "%#{match.getbyte(0).to_s(16).upcase}" }
+        key = key.to_s.dup.force_encoding("BINARY").gsub(ESCAPE_KEY_CHARS) { |match| "%#{match.getbyte(0).to_s(16).upcase}" }
         key_length = key.length
 
         return key if @namespace_length + key_length <= 250
