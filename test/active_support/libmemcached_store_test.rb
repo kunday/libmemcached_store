@@ -216,6 +216,12 @@ describe ActiveSupport::Cache::LibmemcachedStore do
       assert_equal 'baz', @cache.fetch('foo bar') { 'baz' }
     end
 
+    it "can write frozen keys" do
+      key = 'foo bar'.freeze
+      @cache.write(key, 1)
+      @cache.read(key).must_equal 1
+    end
+
     describe "#exist?" do
       it "is true when key exists" do
         @cache.write('foo', 'bar')
